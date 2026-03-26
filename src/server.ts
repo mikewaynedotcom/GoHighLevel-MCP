@@ -34,6 +34,7 @@ import { GHLConfig } from './types/ghl-types';
 import { ProductsTools } from './tools/products-tools.js';
 import { PaymentsTools } from './tools/payments-tools.js';
 import { InvoicesTools } from './tools/invoices-tools.js';
+import { PricePlanCalculatorTools } from './tools/price-plan-calculator-tools.js';
 
 // Load environment variables
 dotenv.config();
@@ -63,6 +64,7 @@ class GHLMCPServer {
   private productsTools: ProductsTools;
   private paymentsTools: PaymentsTools;
   private invoicesTools: InvoicesTools;
+  private pricePlanCalculatorTools: PricePlanCalculatorTools;
 
   constructor() {
     // Initialize MCP server with capabilities
@@ -101,6 +103,7 @@ class GHLMCPServer {
     this.productsTools = new ProductsTools(this.ghlClient);
     this.paymentsTools = new PaymentsTools(this.ghlClient);
     this.invoicesTools = new InvoicesTools(this.ghlClient);
+    this.pricePlanCalculatorTools = new PricePlanCalculatorTools();
 
     // Setup MCP handlers
     this.setupHandlers();
@@ -163,7 +166,8 @@ class GHLMCPServer {
         const productsToolDefinitions = this.productsTools.getTools();
         const paymentsToolDefinitions = this.paymentsTools.getTools();
         const invoicesToolDefinitions = this.invoicesTools.getTools();
-        
+        const pricePlanCalculatorToolDefinitions = this.pricePlanCalculatorTools.getTools();
+
         const allTools = [
           ...contactToolDefinitions,
           ...conversationToolDefinitions,
@@ -183,7 +187,8 @@ class GHLMCPServer {
           ...storeToolDefinitions,
           ...productsToolDefinitions,
           ...paymentsToolDefinitions,
-          ...invoicesToolDefinitions
+          ...invoicesToolDefinitions,
+          ...pricePlanCalculatorToolDefinitions
         ];
         
         process.stderr.write(`[GHL MCP] Registered ${allTools.length} tools total:\n`);
@@ -206,6 +211,7 @@ class GHLMCPServer {
         process.stderr.write(`[GHL MCP] - ${productsToolDefinitions.length} products tools\n`);
         process.stderr.write(`[GHL MCP] - ${paymentsToolDefinitions.length} payments tools\n`);
         process.stderr.write(`[GHL MCP] - ${invoicesToolDefinitions.length} invoices tools\n`);
+        process.stderr.write(`[GHL MCP] - ${pricePlanCalculatorToolDefinitions.length} price plan calculator tools\n`);
         
         return {
           tools: allTools
@@ -268,6 +274,8 @@ class GHLMCPServer {
           result = await this.paymentsTools.handleToolCall(name, args || {});
         } else if (this.isInvoicesTool(name)) {
           result = await this.invoicesTools.handleToolCall(name, args || {});
+        } else if (this.isPricePlanCalculatorTool(name)) {
+          result = await this.pricePlanCalculatorTools.executePricePlanCalculatorTool(name, args || {});
         } else {
           throw new Error(`Unknown tool: ${name}`);
         }
@@ -576,6 +584,17 @@ class GHLMCPServer {
   }
 
   /**
+   * Check if tool name belongs to price plan calculator tools
+   */
+  private isPricePlanCalculatorTool(toolName: string): boolean {
+    const pricePlanCalculatorToolNames = [
+      'funnelstreams_get_plans', 'funnelstreams_get_addons', 'funnelstreams_calculate_price',
+      'funnelstreams_compare_plans', 'funnelstreams_recommend_plan'
+    ];
+    return pricePlanCalculatorToolNames.includes(toolName);
+  }
+
+  /**
    * Check if tool name belongs to invoices tools
    */
   private isInvoicesTool(toolName: string): boolean {
@@ -658,7 +677,8 @@ class GHLMCPServer {
       const productsToolCount = this.productsTools.getTools().length;
       const paymentsToolCount = this.paymentsTools.getTools().length;
       const invoicesToolCount = this.invoicesTools.getTools().length;
-      const totalTools = contactToolCount + conversationToolCount + blogToolCount + opportunityToolCount + calendarToolCount + emailToolCount + locationToolCount + emailISVToolCount + socialMediaToolCount + mediaToolCount + objectToolCount + associationToolCount + customFieldV2ToolCount + workflowToolCount + surveyToolCount + storeToolCount + productsToolCount + paymentsToolCount + invoicesToolCount;
+      const pricePlanCalculatorToolCount = this.pricePlanCalculatorTools.getTools().length;
+      const totalTools = contactToolCount + conversationToolCount + blogToolCount + opportunityToolCount + calendarToolCount + emailToolCount + locationToolCount + emailISVToolCount + socialMediaToolCount + mediaToolCount + objectToolCount + associationToolCount + customFieldV2ToolCount + workflowToolCount + surveyToolCount + storeToolCount + productsToolCount + paymentsToolCount + invoicesToolCount + pricePlanCalculatorToolCount;
       
       process.stderr.write(`📋 Available tools: ${totalTools}\n`);
       process.stderr.write('\n');
@@ -786,6 +806,13 @@ class GHLMCPServer {
       process.stderr.write('   ESTIMATES: create, list, send estimates, convert to invoices\n');
       process.stderr.write('   UTILITIES: generate invoice/estimate numbers automatically\n');
       process.stderr.write('   FEATURES: late fees, payment methods, multi-currency support\n');
+      process.stderr.write('\n');
+      process.stderr.write('💲 FUNNELSTREAMS.COM PRICE PLAN CALCULATOR:\n');
+      process.stderr.write('   • funnelstreams_get_plans - Get all pricing plans with features and limits\n');
+      process.stderr.write('   • funnelstreams_get_addons - Get available add-ons\n');
+      process.stderr.write('   • funnelstreams_calculate_price - Calculate total price with add-ons\n');
+      process.stderr.write('   • funnelstreams_compare_plans - Compare plans side-by-side\n');
+      process.stderr.write('   • funnelstreams_recommend_plan - Get personalized plan recommendation\n');
       process.stderr.write('=====================================\n');
       
     } catch (error) {

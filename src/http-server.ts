@@ -33,6 +33,7 @@ import { WorkflowTools } from './tools/workflow-tools';
 import { SurveyTools } from './tools/survey-tools';
 import { StoreTools } from './tools/store-tools';
 import { ProductsTools } from './tools/products-tools.js';
+import { PricePlanCalculatorTools } from './tools/price-plan-calculator-tools.js';
 import { GHLConfig } from './types/ghl-types';
 
 // Load environment variables
@@ -62,6 +63,7 @@ class GHLMCPHttpServer {
   private surveyTools: SurveyTools;
   private storeTools: StoreTools;
   private productsTools: ProductsTools;
+  private pricePlanCalculatorTools: PricePlanCalculatorTools;
   private port: number;
 
   constructor() {
@@ -105,6 +107,7 @@ class GHLMCPHttpServer {
     this.surveyTools = new SurveyTools(this.ghlClient);
     this.storeTools = new StoreTools(this.ghlClient);
     this.productsTools = new ProductsTools(this.ghlClient);
+    this.pricePlanCalculatorTools = new PricePlanCalculatorTools();
 
     // Setup MCP handlers
     this.setupMCPHandlers();
@@ -188,7 +191,8 @@ class GHLMCPHttpServer {
         const surveyToolDefinitions = this.surveyTools.getTools();
         const storeToolDefinitions = this.storeTools.getTools();
         const productsToolDefinitions = this.productsTools.getTools();
-        
+        const pricePlanCalculatorToolDefinitions = this.pricePlanCalculatorTools.getTools();
+
         const allTools = [
           ...contactToolDefinitions,
           ...conversationToolDefinitions,
@@ -206,7 +210,8 @@ class GHLMCPHttpServer {
           ...workflowToolDefinitions,
           ...surveyToolDefinitions,
           ...storeToolDefinitions,
-          ...productsToolDefinitions
+          ...productsToolDefinitions,
+          ...pricePlanCalculatorToolDefinitions
         ];
         
         console.log(`[GHL MCP HTTP] Registered ${allTools.length} tools total`);
@@ -267,10 +272,12 @@ class GHLMCPHttpServer {
           result = await this.storeTools.executeStoreTool(name, args || {});
         } else if (this.isProductsTool(name)) {
           result = await this.productsTools.executeProductsTool(name, args || {});
+        } else if (this.isPricePlanCalculatorTool(name)) {
+          result = await this.pricePlanCalculatorTools.executePricePlanCalculatorTool(name, args || {});
         } else {
           throw new Error(`Unknown tool: ${name}`);
         }
-        
+
         console.log(`[GHL MCP HTTP] Tool ${name} executed successfully`);
         
         return {
@@ -340,10 +347,11 @@ class GHLMCPHttpServer {
         const surveyTools = this.surveyTools.getTools();
         const storeTools = this.storeTools.getTools();
         const productsTools = this.productsTools.getTools();
-        
+        const pricePlanCalculatorTools = this.pricePlanCalculatorTools.getTools();
+
         res.json({
-          tools: [...contactTools, ...conversationTools, ...blogTools, ...opportunityTools, ...calendarTools, ...emailTools, ...locationTools, ...emailISVTools, ...socialMediaTools, ...mediaTools, ...objectTools, ...associationTools, ...customFieldV2Tools, ...workflowTools, ...surveyTools, ...storeTools, ...productsTools],
-          count: contactTools.length + conversationTools.length + blogTools.length + opportunityTools.length + calendarTools.length + emailTools.length + locationTools.length + emailISVTools.length + socialMediaTools.length + mediaTools.length + objectTools.length + associationTools.length + customFieldV2Tools.length + workflowTools.length + surveyTools.length + storeTools.length + productsTools.length
+          tools: [...contactTools, ...conversationTools, ...blogTools, ...opportunityTools, ...calendarTools, ...emailTools, ...locationTools, ...emailISVTools, ...socialMediaTools, ...mediaTools, ...objectTools, ...associationTools, ...customFieldV2Tools, ...workflowTools, ...surveyTools, ...storeTools, ...productsTools, ...pricePlanCalculatorTools],
+          count: contactTools.length + conversationTools.length + blogTools.length + opportunityTools.length + calendarTools.length + emailTools.length + locationTools.length + emailISVTools.length + socialMediaTools.length + mediaTools.length + objectTools.length + associationTools.length + customFieldV2Tools.length + workflowTools.length + surveyTools.length + storeTools.length + productsTools.length + pricePlanCalculatorTools.length
         });
       } catch (error) {
         res.status(500).json({ error: 'Failed to list tools' });
@@ -426,8 +434,9 @@ class GHLMCPHttpServer {
       surveys: this.surveyTools.getTools().length,
       store: this.storeTools.getTools().length,
       products: this.productsTools.getTools().length,
-      total: this.contactTools.getToolDefinitions().length + 
-             this.conversationTools.getToolDefinitions().length + 
+      pricePlanCalculator: this.pricePlanCalculatorTools.getTools().length,
+      total: this.contactTools.getToolDefinitions().length +
+             this.conversationTools.getToolDefinitions().length +
              this.blogTools.getToolDefinitions().length +
              this.opportunityTools.getToolDefinitions().length +
              this.calendarTools.getToolDefinitions().length +
@@ -442,7 +451,8 @@ class GHLMCPHttpServer {
              this.workflowTools.getTools().length +
              this.surveyTools.getTools().length +
              this.storeTools.getTools().length +
-             this.productsTools.getTools().length
+             this.productsTools.getTools().length +
+             this.pricePlanCalculatorTools.getTools().length
     };
   }
 
@@ -660,6 +670,14 @@ class GHLMCPHttpServer {
       'ghl_bulk_update_product_reviews'
     ];
     return productsToolNames.includes(toolName);
+  }
+
+  private isPricePlanCalculatorTool(toolName: string): boolean {
+    const pricePlanCalculatorToolNames = [
+      'funnelstreams_get_plans', 'funnelstreams_get_addons', 'funnelstreams_calculate_price',
+      'funnelstreams_compare_plans', 'funnelstreams_recommend_plan'
+    ];
+    return pricePlanCalculatorToolNames.includes(toolName);
   }
 
   /**
